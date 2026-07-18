@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bombardiers — Gold Master</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section id="bg-game">
+    <div class="game-shell">
+      <header class="hud">
+        <div class="hud-panel">
+          <span class="hud-label">LEVEL</span>
+          <strong id="levelText">1</strong>
+          <small id="turnText">JOUW BEURT</small>
+        </div>
+        <div class="hud-panel hud-center">
+          <strong id="clockText">02:40</strong>
+          <small id="shieldText">VOLGEND SCHILD 100%</small>
+        </div>
+        <div class="hud-panel hud-right">
+          <span class="hud-label">JOUW DOELEN</span>
+          <strong id="playerCount">4</strong>
+          <span class="hud-label">VIJANDDOELEN</span>
+          <strong id="enemyCount">4</strong>
+        </div>
+      </header>
+      <div class="canvas-wrap">
+        <canvas id="gameCanvas" width="760" height="900" aria-label="Speelveld van Bombardiers"></canvas>
+        <div class="scanlines" aria-hidden="true"></div>
+        <div id="banner" class="banner" aria-live="polite"></div>
+      </div>
+      <div class="controls">
+        <div class="control-box">
+          <label for="angle">RICHTING</label>
+          <div class="slider-row">
+            <button id="angleDown" type="button">−</button>
+            <input id="angle" type="range" min="-180" max="180" value="-54">
+            <button id="angleUp" type="button">+</button>
+          </div>
+          <output id="angleOut">−54°</output>
+        </div>
+        <div class="control-box">
+          <label for="power">KRACHT</label>
+          <div class="slider-row">
+            <button id="powerDown" type="button">−</button>
+            <input id="power" type="range" min="35" max="125" value="82">
+            <button id="powerUp" type="button">+</button>
+          </div>
+          <output id="powerOut">82%</output>
+        </div>
+        <div class="action-box">
+          <button id="fire" type="button" class="fire">VUUR AF</button>
+          <button id="shield" type="button" class="shield" disabled>SHIELD</button>
+          <button id="restart" type="button">NIEUW DUEL</button>
+          <button id="music" type="button">MUZIEK AAN</button>
+        </div>
+      </div>
+      <div id="mathLayer" class="math-layer" hidden>
+        <div class="math-box" role="dialog" aria-modal="true" aria-labelledby="mathHeading">
+          <div id="countdown" class="countdown">8</div>
+          <span>NOODPROTOCOL</span>
+          <h2 id="mathHeading">Activeer het schild</h2>
+          <p>Los de som op voordat het projectiel verder vliegt.</p>
+          <div id="question" class="question">7 × 8 = ?</div>
+          <input id="answer" type="number" inputmode="numeric" aria-label="Antwoord">
+          <div id="feedback" class="feedback" aria-live="polite"></div>
+          <button id="submitAnswer" type="button">ACTIVEER SCHILD</button>
+        </div>
+      </div>
+    </div>
+    <p id="status" class="status" aria-live="polite">Richt, bepaal de kracht en vuur af.</p>
+  </section>
+  <script src="game.js"></script>
+</body>
+</html>
