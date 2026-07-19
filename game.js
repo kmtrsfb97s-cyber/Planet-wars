@@ -2,12 +2,13 @@
   const $=id=>document.getElementById(id), canvas=$('gameCanvas'), ctx=canvas.getContext('2d');
   const W=canvas.width,H=canvas.height, angle=$('angle'), power=$('power'), STEP=1/180, G=400000;
   const stars=Array.from({length:145},(_,i)=>({x:(i*83+19)%W,y:(i*57+43)%H,r:.5+(i%3)*.45,p:i*.51}));
-  const template=[
-    {x:380,y:450,r:65,d:1.25,c:['#dda65a','#7e542e','#23150c']},
-    {x:150,y:300,r:27,d:.82,c:['#899fbd','#3b4c69','#101624']},
-    {x:610,y:310,r:29,d:.84,c:['#b68fc7','#60456f','#21172a']},
-    {x:245,y:600,r:25,d:.72,c:['#78a7c9','#345972','#10212e']},
-    {x:535,y:625,r:31,d:.94,c:['#a5b47d','#53653d','#192315']}
+  const planetPalettes=[
+    ['#dda65a','#7e542e','#23150c'],
+    ['#899fbd','#3b4c69','#101624'],
+    ['#b68fc7','#60456f','#21172a'],
+    ['#78a7c9','#345972','#10212e'],
+    ['#a5b47d','#53653d','#192315'],
+    ['#cf8063','#74402f','#25140f']
   ];
   let planets=[],playerTargets=[],enemyTargets=[],projectile=null,contrail=[],particles=[],preview=[];
   let launchSmoke=[],mushroomClouds=[],craters=[];
@@ -20,6 +21,36 @@
   const surface=b=>({x:b.cx+Math.cos(b.a)*b.r,y:b.cy+Math.sin(b.a)*b.r});
   const coverage=()=>shieldUses===1?1:shieldUses===2?.55:shieldUses>=3?.1:0;
   const nextCoverage=()=>shieldUses===0?1:shieldUses===1?.55:.1;
+
+
+  function generatePlanets(){
+    const result=[];
+    const count=4+Math.floor(Math.random()*3);
+    const launchPoints=[surface(playerBase()),surface(enemyBase())];
+    const safeFromHomes=(x,y,r)=>{
+      for(const base of [playerBase(),enemyBase()]){
+        if(Math.hypot(x-base.cx,y-base.cy)<base.r+r+72)return false;
+      }
+      for(const p of launchPoints){
+        if(Math.hypot(x-p.x,y-p.y)<r+105)return false;
+      }
+      return true;
+    };
+
+    let attempts=0;
+    while(result.length<count&&attempts<1200){
+      attempts++;
+      const central=result.length===0;
+      const r=central?52+Math.random()*17:22+Math.random()*22;
+      const x=central?W*.5+(Math.random()-.5)*105:85+r+Math.random()*(W-170-r*2);
+      const y=central?H*.49+(Math.random()-.5)*145:205+r+Math.random()*(H-410-r*2);
+      if(!safeFromHomes(x,y,r))continue;
+      if(result.some(p=>Math.hypot(x-p.x,y-p.y)<r+p.r+48))continue;
+      const palette=planetPalettes[Math.floor(Math.random()*planetPalettes.length)];
+      result.push({x,y,r,d:.72+Math.random()*.62,c:[...palette],phase:Math.random()*Math.PI*2});
+    }
+    return result;
+  }
 
   function makeTargets(base,enemy){
     const aa=enemy?[Math.PI/2-.65,Math.PI/2-.30,Math.PI/2+.08,Math.PI/2+.44]:[-Math.PI/2-.44,-Math.PI/2-.08,-Math.PI/2+.30,-Math.PI/2+.65];
@@ -61,17 +92,29 @@
     if(outside(b))return{type:'lost'}; return null;
   }
   function enemyVelocity(){
-    const start=surface(enemyBase()),targets=playerTargets.filter(t=>t.alive),target=targets[Math.floor(Math.random()*targets.length)]||surface(playerBase());
-    let best={score:Infinity,a:60,p:85};
-    for(let deg=5;deg<=175;deg+=8)for(let pow=60;pow<=118;pow+=9){
-      const maxSpeed=pow*3.25,b={x:start.x,y:start.y,vx:Math.cos(deg*Math.PI/180)*maxSpeed*.2,vy:Math.sin(deg*Math.PI/180)*maxSpeed*.2,maxSpeed,age:0};let score=Infinity;
-      for(let i=0;i<700;i++){integrate(b,STEP*3);score=Math.min(score,Math.hypot(b.x-target.x,b.y-target.y));if(outside(b)||planetCollision(b))break}
+    const base=enemyBase(),start=surface(base),targets=playerTargets.filter(t=>t.alive),target=targets[Math.floor(Math.random()*targets.length)]||surface(playerBase());
+    const outward={x:Math.cos(base.a),y:Math.sin(base.a)};
+    let best={score:Infinity,a:base.a*180/Math.PI,p:85};
+
+    // Alleen richtingen die eerst van de eigen thuisplaneet af bewegen.
+    for(let deg=-4;deg<=138;deg+=6)for(let pow=60;pow<=118;pow+=7){
+      const rad=deg*Math.PI/180;
+      const directionDot=Math.cos(rad)*outward.x+Math.sin(rad)*outward.y;
+      if(directionDot<.24)continue;
+      const maxSpeed=pow*3.25,b={x:start.x+outward.x*8,y:start.y+outward.y*8,vx:Math.cos(rad)*maxSpeed*.2,vy:Math.sin(rad)*maxSpeed*.2,maxSpeed,age:0};let score=Infinity;
+      for(let i=0;i<760;i++){
+        integrate(b,STEP*3);
+        score=Math.min(score,Math.hypot(b.x-target.x,b.y-target.y));
+        if(outside(b)||planetCollision(b)||homeCollision(b))break;
+      }
       if(score<best.score)best={score,a:deg,p:pow};
     }
-    const a=(best.a+(Math.random()-.5)*5)*Math.PI/180,maxSpeed=best.p*3.25;return{vx:Math.cos(a)*maxSpeed*.2,vy:Math.sin(a)*maxSpeed*.2,maxSpeed};
+    const jitter=(Math.random()-.5)*3;
+    const a=(best.a+jitter)*Math.PI/180,maxSpeed=best.p*3.25;
+    return{vx:Math.cos(a)*maxSpeed*.2,vy:Math.sin(a)*maxSpeed*.2,maxSpeed};
   }
   function reset(){
-    clearTimeout(enemyTimer); planets=template.map((p,i)=>({...p,phase:i*1.4}));playerTargets=makeTargets(playerBase(),false);enemyTargets=makeTargets(enemyBase(),true);
+    clearTimeout(enemyTimer); planets=generatePlanets();playerTargets=makeTargets(playerBase(),false);enemyTargets=makeTargets(enemyBase(),true);
     projectile=null;contrail=[];particles=[];preview=[];launchSmoke=[];mushroomClouds=[];craters=[];turn='player';locked=false;paused=false;elapsed=0;threat=false;shieldActive=false;shieldAttempted=false;shieldUses=0;angle.value=-54;power.value=82;
     updateControls();showBanner('JOUW BEURT');$('status').textContent='Richt, bepaal de kracht en vuur af.';syncHud();
   }
@@ -81,7 +124,7 @@
     for(let i=0;i<1700;i++){integrate(b,STEP*2.4);dist+=Math.hypot(b.x-px,b.y-py);px=b.x;py=b.y;if(i%9===0)preview.push({x:b.x,y:b.y});if(dist>330||collision(b))break}
   }
   function launch(owner){
-    const base=owner==='player'?playerBase():enemyBase(),v=owner==='player'?playerVelocity():enemyVelocity(),start=surface(base);projectile={x:start.x,y:start.y,...v,age:0,owner,launchAge:0,launchDelay:.85,engineTime:2.1};contrail=[];launchSmoke=[];flight=0;acc=0;locked=true;shake=7;flash=.18;
+    const base=owner==='player'?playerBase():enemyBase(),v=owner==='player'?playerVelocity():enemyVelocity(),surfaceStart=surface(base),outward={x:Math.cos(base.a),y:Math.sin(base.a)},start={x:surfaceStart.x+outward.x*7,y:surfaceStart.y+outward.y*7};projectile={x:start.x,y:start.y,...v,age:0,owner,launchAge:0,launchDelay:.85,engineTime:2.1};contrail=[];launchSmoke=[];flight=0;acc=0;locked=true;shake=7;flash=.18;
     if(owner==='enemy'){threat=true;shieldAttempted=false;$('status').textContent='Vijandelijk projectiel onderweg. Shield is beschikbaar.'}
     burst(start.x,start.y,28,owner==='enemy'?'120,205,255':'255,185,60');
     for(let i=0;i<26;i++) launchSmoke.push({x:start.x+(Math.random()-.5)*10,y:start.y+(Math.random()-.5)*10,vx:(Math.random()-.5)*30,vy:(Math.random()-.5)*30,age:Math.random()*.15,life:.9+Math.random()*1.2,size:5+Math.random()*9});
